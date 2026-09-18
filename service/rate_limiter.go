@@ -10,22 +10,25 @@ import (
 
 type RateLimiter struct{
 	mu sync.Mutex
-	Map map[string]model.Bucket
+	buckets map[string]model.Bucket
+	policy model.RateLimitPolicy
 }
-func NewRateLimiter() *RateLimiter{
+func NewRateLimiter(policy model.RateLimitPolicy) *RateLimiter{
 	return &RateLimiter{
-		Map : make(map[string]model.Bucket),
+		buckets : make(map[string]model.Bucket),
+		policy : policy,
 	}
 }
 type RateLimitingService interface{
-	RateLimiting(Clientid string,requestTime time.Time)(string)
+	RateLimiting(Clientid string,requestTime time.Time)(model.RateLimitResult)
 }
-func(r *RateLimiter) RateLimiting(Clientid string,requestTime time.Time)(string){
+func(r *RateLimiter) RateLimiting(Clientid string,requestTime time.Time)(model.RateLimitResult){
 	r.mu.Lock()
 
 	defer r.mu.Unlock()
-	bucket,ok := r.Map[Clientid]
-
+	bucket,ok := r.buckets[Clientid]
+	allowed := false
+	retryAfter:=0.0
 	if ok {
 		timeDiff :=requestTime.Sub(bucket.LastRefill)
 		newTokens :=timeDiff.Seconds() * (bucket.RefillRate)
@@ -35,20 +38,28 @@ func(r *RateLimiter) RateLimiting(Clientid string,requestTime time.Time)(string)
 			bucket.LastRefill=requestTime
 		}
 			
-		if bucket.CurrentTokens >= 1.0 {
-			bucket.CurrentTokens-= 1.0
-			fmt.Println("Request Allowed")
-		}else{
-			fmt.Println("Request rejected")
-		}
-		
 	}else{
 		bucket.Capacity=10
-		bucket.CurrentTokens=9
+		bucket.CurrentTokens=10
 		bucket.RefillRate=2
 		bucket.LastRefill=requestTime
-		fmt.Println("Request Allowed")
 	}
-	r.Map[Clientid] =bucket
-	return "done"
+
+	if bucket.CurrentTokens >= 1.0 {
+			bucket.CurrentTokens-= 1.0
+			allowed=true
+		}else{
+			retryAfter =(1.0-bucket.CurrentTokens)/bucket.RefillRate
+	}
+
+	
+	r.buckets[Clientid] =bucket
+
+	var results model.RateLimitResult
+
+	results.Allowed=allowed
+	results.RemianingTokens=bucket.CurrentTokens
+	results.RetryAfter=retryAfter
+	fmt.Println(results)
+	return results
 }
