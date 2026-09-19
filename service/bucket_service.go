@@ -8,21 +8,21 @@ import (
 	"github.com/StardustEnigma/FluxGate/model"
 )
 
-type RateLimiter struct{
+type TokenBucketLimiter struct{
 	mu sync.Mutex
 	buckets map[string]model.Bucket
-	policy model.RateLimitPolicy
+	policy model.TokenBucketPolicy
 }
-func NewRateLimiter(policy model.RateLimitPolicy) *RateLimiter{
-	return &RateLimiter{
+func NewTokenBucketLimiter(policy model.TokenBucketPolicy) *TokenBucketLimiter{
+	return &TokenBucketLimiter{
 		buckets : make(map[string]model.Bucket),
 		policy : policy,
 	}
 }
 type RateLimitingService interface{
-	RateLimiting(Clientid string,requestTime time.Time)(model.RateLimitResult)
+	TokenBucketLimiting(Clientid string,requestTime time.Time)(model.TokenBucketResult)
 }
-func(r *RateLimiter) RateLimiting(Clientid string,requestTime time.Time)(model.RateLimitResult){
+func(r *TokenBucketLimiter) TokenBucketLimiting(Clientid string,requestTime time.Time)(model.TokenBucketResult){
 	r.mu.Lock()
 
 	defer r.mu.Unlock()
@@ -55,7 +55,7 @@ func(r *RateLimiter) RateLimiting(Clientid string,requestTime time.Time)(model.R
 	
 	r.buckets[Clientid] =bucket
 
-	var results model.RateLimitResult
+	var results model.TokenBucketResult
 
 	results.Allowed=allowed
 	results.RemianingTokens=bucket.CurrentTokens

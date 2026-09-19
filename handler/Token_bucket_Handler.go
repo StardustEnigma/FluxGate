@@ -8,15 +8,15 @@ import (
 	"github.com/StardustEnigma/FluxGate/service"
 )
 
-type Handler struct{
+type TokenBucketHandler struct{
 	RateLimitService service.RateLimitingService
 }
 
-func (h *Handler)Request(w http.ResponseWriter,r *http.Request){
+func (h *TokenBucketHandler)TokenBucket(w http.ResponseWriter,r *http.Request){
 
 	var Clientid string
 	json.NewDecoder(r.Body).Decode(&Clientid)
 	
-	rateLimitResult := h.RateLimitService.RateLimiting(Clientid,time.Now())
+	rateLimitResult := h.RateLimitService.TokenBucketLimiting(Clientid,time.Now())
 	json.NewEncoder(w).Encode(rateLimitResult)
 }

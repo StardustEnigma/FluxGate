@@ -1,6 +1,8 @@
 package routes
 
 import (
+	"time"
+
 	"github.com/StardustEnigma/FluxGate/handler"
 	"github.com/StardustEnigma/FluxGate/model"
 	"github.com/StardustEnigma/FluxGate/service"
@@ -9,12 +11,20 @@ import (
 
 func Routes() *chi.Mux {
 	r := chi.NewRouter()
-	policy := model.RateLimitPolicy{
+	TokenBucketpolicy := model.TokenBucketPolicy{
 		Capacity:   10,
 		RefillRate: 2,
 	}
-	rateLimitService := service.NewRateLimiter(policy)
-	handler := &handler.Handler{RateLimitService: rateLimitService}
-	r.Get("/api", handler.Request)
+	SlidingWindowPolicy := model.SlidingWindowPolicy{
+		Limit: 10,
+		TimeWindow: 60*time.Second,
+	}
+	rateLimitService := service.NewTokenBucketLimiter(TokenBucketpolicy)
+	slidingLimitService := service.NewSlidingWindowLimiter(SlidingWindowPolicy)
+	TokenBucketHandler := &handler.TokenBucketHandler{RateLimitService: rateLimitService}
+	SlidingWindowHandler := &handler.SldingWindowHandler{SlidingWindowService: slidingLimitService}
+	r.Get("/token-bucket", TokenBucketHandler.TokenBucket)
+	r.Get("/sliding-window",SlidingWindowHandler.SlidingWindow)
+
 	return r
 }
