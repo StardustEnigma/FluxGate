@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/StardustEnigma/FluxGate/model"
 	"github.com/StardustEnigma/FluxGate/service"
 )
 
@@ -18,5 +19,9 @@ func (h *RateLimiterHandler)RateLimit(w http.ResponseWriter,r *http.Request){
 	json.NewDecoder(r.Body).Decode(&Clientid)
 	
 	rateLimitResult := h.RateLimiter.RateLimit(Clientid,time.Now())
-	json.NewEncoder(w).Encode(rateLimitResult)
+	response := model.RateLimitingResponse{
+		Allowed: rateLimitResult.Allowed,
+		RetryAfter: rateLimitResult.RetryAfter,
+	}
+	json.NewEncoder(w).Encode(response)
 }

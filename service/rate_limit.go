@@ -7,5 +7,5 @@ import (
 )
 
 type RateLimiter interface{
-	RateLimit(Clientid string, requestTime time.Time)(model.RateLimitingResult)
+	RateLimit(Clientid string, requestTime time.Time)(model.RateLimitingResponse)
 }

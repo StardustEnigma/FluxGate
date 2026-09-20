@@ -1,7 +1,7 @@
 package service
 
 import (
-	"fmt"
+
 	"sync"
 	"time"
 
@@ -20,13 +20,12 @@ func NewTokenBucketLimiter(policy model.TokenBucketPolicy) *TokenBucketLimiter{
 	}
 }
 
-func(r *TokenBucketLimiter) RateLimit(Clientid string,requestTime time.Time)(model.RateLimitingResult){
+func(r *TokenBucketLimiter) RateLimit(Clientid string,requestTime time.Time)(model.RateLimitingResponse){
 	r.mu.Lock()
 
 	defer r.mu.Unlock()
 	bucket,ok := r.buckets[Clientid]
-	allowed := false
-	var retryAfter time.Duration
+
 	if ok {
 		timeDiff :=requestTime.Sub(bucket.LastRefill)
 		newTokens :=timeDiff.Seconds() * (bucket.RefillRate)
@@ -37,25 +36,24 @@ func(r *TokenBucketLimiter) RateLimit(Clientid string,requestTime time.Time)(mod
 		}
 			
 	}else{
-		bucket.Capacity=10
-		bucket.CurrentTokens=10
-		bucket.RefillRate=2
+		bucket.Capacity=r.policy.Capacity
+		bucket.CurrentTokens=r.policy.Capacity
+		bucket.RefillRate=r.policy.RefillRate
 		bucket.LastRefill=requestTime
 	}
-
+	var results model.RateLimitingResponse
 	if bucket.CurrentTokens >= 1.0 {
 			bucket.CurrentTokens-= 1.0
-			allowed=true
+			results.Allowed=true
 		}else{
-			retryAfter = time.Duration(((1.0-bucket.CurrentTokens)/bucket.RefillRate) * float64(time.Second))
+			results.Allowed=false
+			seconds := (1-bucket.CurrentTokens) / bucket.RefillRate
+			retryAfter := time.Duration(
+					seconds *float64(time.Second),
+			)
+			results.RetryAfter = retryAfter.String()
 	}
 
 	r.buckets[Clientid] =bucket
-
-	var results model.RateLimitingResult
-
-	results.Allowed=allowed
-	results.RetryAfter=retryAfter
-	fmt.Println(results)
 	return results
 }
