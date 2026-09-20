@@ -19,12 +19,16 @@ func Routes() *chi.Mux {
 		Limit: 10,
 		TimeWindow: 60*time.Second,
 	}
-	rateLimitService := service.NewTokenBucketLimiter(TokenBucketpolicy)
-	slidingLimitService := service.NewSlidingWindowLimiter(SlidingWindowPolicy)
-	TokenBucketHandler := &handler.TokenBucketHandler{RateLimitService: rateLimitService}
-	SlidingWindowHandler := &handler.SldingWindowHandler{SlidingWindowService: slidingLimitService}
-	r.Get("/token-bucket", TokenBucketHandler.TokenBucket)
-	r.Get("/sliding-window",SlidingWindowHandler.SlidingWindow)
+	tokenBucket := service.NewTokenBucketLimiter(TokenBucketpolicy)
+	slindingWindow := service.NewSlidingWindowLimiter(SlidingWindowPolicy)
+	SlidingWindowHandler := &handler.RateLimiterHandler{
+		RateLimiter : slindingWindow,
+	}
+	TokenBucketHandler := &handler.RateLimiterHandler{
+		RateLimiter: tokenBucket,
+	}
+	r.Get("/token-bucket", TokenBucketHandler.RateLimit)
+    r.Get("/sliding-window", SlidingWindowHandler.RateLimit)
 
 	return r
 }

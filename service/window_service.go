@@ -21,18 +21,15 @@ func NewSlidingWindowLimiter(policy model.SlidingWindowPolicy) *SlidingWindowLim
 	}
 }
 
-type SlidingWindowService interface{
-	SlidingWindowLimiting(Clientid string,requestTime time.Time)(bool)
-}
 
-func(r *SlidingWindowLimiter)SlidingWindowLimiting(Clientid string,requestTime time.Time)(bool){
+func(r *SlidingWindowLimiter)RateLimit(Clientid string,requestTime time.Time)(model.RateLimitingResult){
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	requests := r.requests[Clientid]
-
+	var result model.RateLimitingResult
 		windowStart := requestTime.Add(-r.policy.TimeWindow)
 		validRequest :=requests[:0]
-
+		
 		for _,requestTime:=range requests{
 			if requestTime.After(windowStart){
 				validRequest = append(validRequest, requestTime)
@@ -40,12 +37,16 @@ func(r *SlidingWindowLimiter)SlidingWindowLimiting(Clientid string,requestTime t
 		}
 		if len(validRequest) >= r.policy.Limit{
 			r.requests[Clientid]=validRequest
+			retryAfter := validRequest[0].Add(r.policy.TimeWindow).Sub(requestTime)
 			fmt.Println(requestTime.Format("15:04:05"), "Request cancelled:", Clientid)
-			return false
+			result.Allowed = false
+			result.RetryAfter = retryAfter
+			return result
 		}
 		validRequest = append(validRequest, requestTime)
 		r.requests[Clientid]=validRequest
 		fmt.Println(requestTime.Format("15:04:05"), "Request allowed:", Clientid)
-		return true
+		result.Allowed =true
+		return result
 	
 }

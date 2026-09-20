@@ -1,7 +1,8 @@
 package model
 
-type TokenBucketResult struct{
+import "time"
+
+type RateLimitingResult struct{
 	Allowed bool 
-	RemianingTokens float64
-	RetryAfter float64
+	RetryAfter time.Duration
 }
