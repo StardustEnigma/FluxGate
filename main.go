@@ -24,19 +24,20 @@ func main(){
 
 	limit := flag.Int("limit",10,"Sliding Window Request Limit")
 	timeWindow := flag.Duration("window",60*time.Second,"Sliding Window")
-
-	if *capacity <= 0 || *refillRate <= 0 {
-    	log.Fatal("capacity and refill-rate must be greater than 0")
-	}
-	if *limit <= 0 || *timeWindow <= 0 {
-    	log.Fatal("limit and window must be greater than 0")
-	}
-
 	flag.Parse()
+	if *algorithm =="" {
+		log.Fatal("algorithm is required")
+	}
 	fmt.Println("algorithm =",*algorithm)
 
 	switch *algorithm{
 	case "token-bucket":
+		if *capacity <=0 {
+			log.Fatal("capacity must be greater than 0")
+		}
+		if *refillRate <=0 {
+			log.Fatal("refill rate must be greater than 0")
+		}
 		tokenBucketpolicy := model.TokenBucketPolicy{
 		Capacity:   *capacity,
 		RefillRate: *refillRate,
@@ -44,6 +45,12 @@ func main(){
 		limiter = service.NewTokenBucketLimiter(tokenBucketpolicy)
 	
 	case "sliding-window":
+		if *limit <= 0 {
+			log.Fatal("limit must be greater than 0")
+		}
+		if *timeWindow <=0 {
+			log.Fatal("window must be greater than 0")
+		}
 		slidingWindowPolicy := model.SlidingWindowPolicy{
 		Limit: *limit,
 		TimeWindow: *timeWindow,
@@ -51,7 +58,7 @@ func main(){
 		limiter = service.NewSlidingWindowLimiter(slidingWindowPolicy)
 	
 	default :
-		log.Fatalf("unknown algorithm : %s",*algorithm)
+		log.Fatalf("unknown algorithm : %s (use token-bucket or sliding-window)" ,*algorithm)
 
 	}
 	rateLimiterHandler := &handler.RateLimiterHandler{RateLimiter: limiter}
