@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -9,12 +10,18 @@ import (
 
 	"github.com/StardustEnigma/FluxGate/handler"
 	"github.com/StardustEnigma/FluxGate/model"
+	"github.com/StardustEnigma/FluxGate/repository"
 	"github.com/StardustEnigma/FluxGate/service"
 	"github.com/go-chi/chi/v5"
 )
 
 func main(){
 	
+	store := repository.NewRedisStore()
+	if err := store.Ping(context.Background()); err !=nil {
+		log.Fatal(err)
+	}
+	fmt.Println("Redis Connected")
 	
 	var limiter service.RateLimiter
 	algorithm := flag.String("algorithm","","Rate Limiting Algorithm")
