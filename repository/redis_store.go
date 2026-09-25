@@ -2,6 +2,8 @@ package repository
 
 import (
 	"context"
+	"fmt"
+	"log"
 	"strconv"
 	"time"
 
@@ -27,21 +29,26 @@ func (r *RedisStore) Ping(ctx context.Context) error{
 	return r.client.Ping(ctx).Err()
 }
 
-func (r *RedisStore) SaveBucket(ctx context.Context,clientId string, bucket model.Bucket)(error){
+func (r *RedisStore) SaveBucket(ctx context.Context, clientID string, bucket model.Bucket) error {
+	key := "rate-limit:" + clientID
 
-	key := "rate-limit" +clientId
+	result := r.client.HSet(ctx, key,
+		"capacity", bucket.Capacity,
+		"refillRate", bucket.RefillRate,
+		"currentTokens", bucket.CurrentTokens,
+		"lastRefill", bucket.LastRefill.UnixNano(),
+	)
 
-	err := r.client.HSet(ctx,key,map[string]interface{}{
-		"capacit" : bucket.Capacity,
-		"refillRate" : bucket.RefillRate,
-		"currentTokens": bucket.CurrentTokens,
-		"lastRefill": bucket.LastRefill.UnixNano(),
-	}).Err()
-	return err
+	if err := result.Err(); err != nil {
+		return err
+	}
+
+
+	return nil
 }
 
 func(r *RedisStore) GetBucket(ctx context.Context,clientId string)(model.Bucket,error){
-	key := "rate-limit"+clientId
+	key := "rate-limit:"+clientId
 
 	data,err := r.client.HGetAll(ctx,key).Result()
 	if err != nil {
@@ -60,8 +67,6 @@ func(r *RedisStore) GetBucket(ctx context.Context,clientId string)(model.Bucket,
 	if err != nil{
 		return model.Bucket{},err
 	}
-
-
 	refillRate, err := strconv.ParseFloat(data["refillRate"], 64)
 	if err != nil {
 		return model.Bucket{}, err
@@ -79,3 +84,14 @@ func(r *RedisStore) GetBucket(ctx context.Context,clientId string)(model.Bucket,
 		LastRefill:    time.Unix(0, lastRefill),
 	}, nil
 }
+
+func(r *RedisStore)CheckBucket(ctx context.Context,clientId string)(error){
+	key := "rate-limit:"+clientId
+
+	data,err := r.client.HGetAll(ctx,key).Result()
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("redis Data : ",data)
+	return nil
+} 

@@ -49,7 +49,7 @@ func main(){
 		Capacity:   *capacity,
 		RefillRate: *refillRate,
 	}
-		limiter = service.NewTokenBucketLimiter(tokenBucketpolicy)
+		limiter = service.NewTokenBucketLimiter(tokenBucketpolicy,store)
 	
 	case "sliding-window":
 		if *limit <= 0 {
@@ -72,5 +72,6 @@ func main(){
 	
 	r := chi.NewRouter()
 	r.Get("/rate-limit",rateLimiterHandler.RateLimit)
+	fmt.Print()
 	log.Fatal(http.ListenAndServe(":8080",r))
 }

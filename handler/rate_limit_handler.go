@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/StardustEnigma/FluxGate/model"
+	"github.com/StardustEnigma/FluxGate/dto"
 	"github.com/StardustEnigma/FluxGate/service"
 )
 
@@ -15,13 +15,12 @@ type RateLimiterHandler struct{
 
 func (h *RateLimiterHandler)RateLimit(w http.ResponseWriter,r *http.Request){
 
-	var Clientid string
-	json.NewDecoder(r.Body).Decode(&Clientid)
-	
-	rateLimitResult := h.RateLimiter.RateLimit(Clientid,time.Now())
-	response := model.RateLimitingResponse{
-		Allowed: rateLimitResult.Allowed,
-		RetryAfter: rateLimitResult.RetryAfter,
+	var req dto.RateLimitRequest
+
+	if err := json.NewDecoder(r.Body).Decode(&req);err != nil {
+		 http.Error(w, "invalid request body", http.StatusBadRequest)
+    	return
 	}
-	json.NewEncoder(w).Encode(response)
+	rateLimitResult := h.RateLimiter.RateLimit(req.ClientId,time.Now())
+	json.NewEncoder(w).Encode(rateLimitResult)
 }

@@ -1,32 +1,31 @@
 package service
 
 import (
-
-	"sync"
+	"context"
+	"errors"
 	"time"
 
 	"github.com/StardustEnigma/FluxGate/model"
+	"github.com/StardustEnigma/FluxGate/repository"
+	"github.com/redis/go-redis/v9"
 )
 
 type TokenBucketLimiter struct{
-	mu sync.Mutex
-	buckets map[string]model.Bucket
+	
+	store *repository.RedisStore
 	policy model.TokenBucketPolicy
 }
-func NewTokenBucketLimiter(policy model.TokenBucketPolicy) *TokenBucketLimiter{
+func NewTokenBucketLimiter(policy model.TokenBucketPolicy,store *repository.RedisStore) *TokenBucketLimiter{
 	return &TokenBucketLimiter{
-		buckets : make(map[string]model.Bucket),
+		store: store,
 		policy : policy,
 	}
 }
 
 func(r *TokenBucketLimiter) RateLimit(Clientid string,requestTime time.Time)(model.RateLimitingResponse){
-	r.mu.Lock()
+	bucket,err := r.store.GetBucket(context.Background(),Clientid)
 
-	defer r.mu.Unlock()
-	bucket,ok := r.buckets[Clientid]
-
-	if ok {
+	if  err == nil{
 		timeDiff :=requestTime.Sub(bucket.LastRefill)
 		newTokens :=timeDiff.Seconds() * (bucket.RefillRate)
 
@@ -35,11 +34,13 @@ func(r *TokenBucketLimiter) RateLimit(Clientid string,requestTime time.Time)(mod
 			bucket.LastRefill=requestTime
 		}
 			
-	}else{
+	}else if errors.Is(err,redis.Nil) {
 		bucket.Capacity=r.policy.Capacity
 		bucket.CurrentTokens=r.policy.Capacity
 		bucket.RefillRate=r.policy.RefillRate
 		bucket.LastRefill=requestTime
+	}else{
+		return model.RateLimitingResponse{}
 	}
 	var results model.RateLimitingResponse
 	if bucket.CurrentTokens >= 1.0 {
@@ -54,6 +55,9 @@ func(r *TokenBucketLimiter) RateLimit(Clientid string,requestTime time.Time)(mod
 			results.RetryAfter = retryAfter.String()
 	}
 
-	r.buckets[Clientid] =bucket
+	if err := r.store.SaveBucket(context.Background(),Clientid,bucket); err != nil{
+		return model.RateLimitingResponse{}
+	}
+
 	return results
 }
