@@ -62,7 +62,7 @@ func main(){
 		Limit: *limit,
 		TimeWindow: *timeWindow,
 	}
-		limiter = service.NewSlidingWindowLimiter(slidingWindowPolicy)
+		limiter = service.NewSlidingWindowLimiter(slidingWindowPolicy,store)
 	
 	default :
 		log.Fatalf("unknown algorithm : %s (use token-bucket or sliding-window)" ,*algorithm)

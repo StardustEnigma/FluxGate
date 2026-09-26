@@ -21,6 +21,6 @@ func (h *RateLimiterHandler)RateLimit(w http.ResponseWriter,r *http.Request){
 		 http.Error(w, "invalid request body", http.StatusBadRequest)
     	return
 	}
-	rateLimitResult := h.RateLimiter.RateLimit(req.ClientId,time.Now())
+	rateLimitResult := h.RateLimiter.RateLimit(r.Context(),req.ClientId,time.Now())
 	json.NewEncoder(w).Encode(rateLimitResult)
 }
