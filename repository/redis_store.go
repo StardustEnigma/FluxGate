@@ -19,6 +19,14 @@ func NewRedisStore() *RedisStore{
 		client: client,
 	}
 }
+func(r *RedisStore)Eval(
+	ctx context.Context,
+	script string,
+	keys []string,
+	args ...any,
+)(any,error){
+	return r.client.Eval(ctx,script,keys,args...).Result()
+}
 
 func (r *RedisStore) Ping(ctx context.Context) error{
 	return r.client.Ping(ctx).Err()
@@ -63,7 +71,7 @@ func(r *RedisStore)ZCard(ctx context.Context,key string)(int64,error){
 	return r.client.ZCard(ctx,key).Result()
 }
 
-func(r *RedisStore)ZRANGE(ctx context.Context,key string,start,stop int64)([]string,error){
+func(r *RedisStore)ZRange(ctx context.Context,key string,start,stop int64)([]string,error){
 	return r.client.ZRange(ctx,key,start,stop).Result()
 }
 func(r *RedisStore)ZRangeWithScores(ctx context.Context,key string,start,stop int64)([]redis.Z,error){

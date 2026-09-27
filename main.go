@@ -71,7 +71,7 @@ func main(){
 	rateLimiterHandler := &handler.RateLimiterHandler{RateLimiter: limiter}
 	
 	r := chi.NewRouter()
-	r.Get("/rate-limit",rateLimiterHandler.RateLimit)
+	r.Post("/rate-limit",rateLimiterHandler.RateLimit)
 	fmt.Print()
 	log.Fatal(http.ListenAndServe(":8080",r))
 }
