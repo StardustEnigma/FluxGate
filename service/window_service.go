@@ -2,12 +2,11 @@ package service
 
 import (
 	"context"
-	"strconv"
 	"time"
 	 "github.com/google/uuid"
 	"github.com/StardustEnigma/FluxGate/model"
 	"github.com/StardustEnigma/FluxGate/repository"
-	"github.com/redis/go-redis/v9"
+
 )
 
 type SlidingWindowLimiter struct{
@@ -29,54 +28,29 @@ func (r *SlidingWindowLimiter) RateLimit(
 ) model.RateLimitingResponse {
 
     key := "rate-limit:window:" + clientID
-    windowStart := requestTime.Add(-r.policy.TimeWindow)
-
-    err := r.store.ZRemRangeByScore(
+    result,err := r.store.Eval(
         ctx,
-        key,
-        "-inf",
-        strconv.FormatInt(windowStart.UnixNano(), 10),
+        slidingWindowScript,
+        []string{key},
+        requestTime.UnixNano(),
+        r.policy.TimeWindow.Nanoseconds(),
+        r.policy.Limit,
+        uuid.NewString(),
     )
     if err != nil {
         return model.RateLimitingResponse{}
     }
+    values :=result.([]interface{})
 
-    count, err := r.store.ZCard(ctx, key)
-    if err != nil {
-        return model.RateLimitingResponse{}
-    }
-
-    if count >= int64(r.policy.Limit) {
-
-        oldest, err := r.store.ZRangeWithScores(ctx, key, 0, 0)
-        if err != nil || len(oldest) == 0 {
-            return model.RateLimitingResponse{}
-        }
-
-        oldestTime := time.Unix(0, int64(oldest[0].Score))
-
-        retryAfter := oldestTime.
-            Add(r.policy.TimeWindow).
-            Sub(requestTime)
-
+    if values[0].(int64)==1 {
         return model.RateLimitingResponse{
-            Allowed:    false,
-            RetryAfter: retryAfter.String(),
+            Allowed: true,
         }
     }
-    err = r.store.ZAdd(
-        ctx,
-        key,
-        redis.Z{
-            Score:  float64(requestTime.UnixNano()),
-            Member: uuid.NewString(),
-        },
-    )
-    if err != nil {
-        return model.RateLimitingResponse{}
-    }
+    retryAfter := time.Duration(values[1].(int64))
 
     return model.RateLimitingResponse{
-        Allowed: true,
+        Allowed: false,
+        RetryAfter: retryAfter.String(),
     }
 }
