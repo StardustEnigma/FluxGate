@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/StardustEnigma/FluxGate/model"
@@ -57,10 +56,6 @@ func (r *TokenBucketLimiter) RateLimit(ctx context.Context, Clientid string, req
 		duration := time.Duration(retryAfter) * time.Millisecond
 		response.RetryAfter=duration.String() 
 	}
-	fmt.Printf(
-    "allowed=%v retryAfter=%dms\n",
-    response.Allowed,
-    retryAfter,
-)
+	
 	return response
 }
