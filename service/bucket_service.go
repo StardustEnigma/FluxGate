@@ -24,7 +24,7 @@ func NewTokenBucketLimiter(policy model.TokenBucketPolicy, store *repository.Red
 func (r *TokenBucketLimiter) RateLimit(ctx context.Context, Clientid string, requestTime time.Time) model.RateLimitingResponse {
 
 	key := "rate-limit:bucket:" + Clientid
-	result ,err := r.store.Eval(
+	result, err := r.store.Eval(
 		ctx,
 		tokenBucketScript,
 		[]string{key},
@@ -35,27 +35,27 @@ func (r *TokenBucketLimiter) RateLimit(ctx context.Context, Clientid string, req
 	if err != nil {
 		return model.RateLimitingResponse{}
 	}
-	
-	values,ok := result.([]interface{})
+
+	values, ok := result.([]interface{})
 	if !ok || len(values) != 3 {
 		return model.RateLimitingResponse{}
 	}
 
-	allowed,ok := values[0].(int64)
+	allowed, ok := values[0].(int64)
 	if !ok {
 		return model.RateLimitingResponse{}
 	}
-	retryAfter,ok := values[2].(int64)
+	retryAfter, ok := values[2].(int64)
 	if !ok {
 		return model.RateLimitingResponse{}
 	}
-	response :=model.RateLimitingResponse{
-		Allowed: allowed==1,
+	response := model.RateLimitingResponse{
+		Allowed: allowed == 1,
 	}
 	if !response.Allowed {
 		duration := time.Duration(retryAfter) * time.Millisecond
-		response.RetryAfter=duration.String() 
+		response.RetryAfter = duration.String()
 	}
-	
+
 	return response
 }
