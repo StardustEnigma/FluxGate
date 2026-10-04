@@ -11,10 +11,12 @@ import (
 
 	ratelimitv1 "github.com/StardustEnigma/FluxGate/gen/ratelimit/v1"
 	"github.com/StardustEnigma/FluxGate/handler"
+	"github.com/StardustEnigma/FluxGate/metrics"
 	"github.com/StardustEnigma/FluxGate/model"
 	"github.com/StardustEnigma/FluxGate/repository"
 	"github.com/StardustEnigma/FluxGate/service"
 	"github.com/go-chi/chi/v5"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 )
 
@@ -71,6 +73,8 @@ func main() {
 		log.Fatalf("unknown algorithm : %s (use token-bucket or sliding-window)", *algorithm)
 
 	}
+	appMetrics := metrics.NewMetrics()
+	limiter = service.NewInstrumentedLimiter(limiter, appMetrics)
 	restHandler := &handler.RateLimiterHandler{
 		RateLimiter: limiter,
 	}
@@ -93,6 +97,12 @@ func main() {
 			RateLimiter: limiter,
 		},
 	)
+	
+	metricsHandler := promhttp.HandlerFor(
+		appMetrics.Resgistry,
+		promhttp.HandlerOpts{},
+	)
+	router.Handle("/metrics", metricsHandler)
 	go func() {
 		log.Println("REST server listening on port :8080")
 		if err := httpServer.ListenAndServe(); err != nil &&

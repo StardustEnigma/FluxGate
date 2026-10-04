@@ -6,17 +6,17 @@ local key=KEYS[1]
 local capacity=tonumber(ARGV[1])
 local refillRate=tonumber(ARGV[2])
 local now=tonumber(ARGV[3])
-
-local data =redis.call("HGETALL",key)
+local data = redis.call("HMGET", key, "currentTokens", "lastRefill")
 
 local currentTokens
 local lastRefill
-if #data == 0 then
-	currentTokens=capacity
-	lastRefill=now
-else 
-	currentTokens = tonumber(redis.call("HGET",key,"currentTokens"))
-	lastRefill = tonumber(redis.call("HGET",key,"lastRefill"))
+
+if not data[1] or not data[2] then
+    currentTokens = capacity
+    lastRefill = now
+else
+    currentTokens = tonumber(data[1])
+    lastRefill = tonumber(data[2])
 end
 
 local elapsed= (now-lastRefill)/1000000000

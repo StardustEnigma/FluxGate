@@ -87,7 +87,7 @@ func main() {
 				req, err := http.NewRequest(
 					http.MethodPost,
 					url,
-					strings.NewReader(`{"clientID":"client123"}`),
+					strings.NewReader(`{"clientId":"client123"}`),
 				)
 				if err != nil {
 					errors.Add(1)
