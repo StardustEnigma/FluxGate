@@ -49,7 +49,7 @@ func main(){
 		Capacity:   *capacity,
 		RefillRate: *refillRate,
 	}
-		limiter = service.NewTokenBucketLimiter(tokenBucketpolicy,store)
+		limiter= service.NewTokenBucketLimiter(tokenBucketpolicy,store)
 	
 	case "sliding-window":
 		if *limit <= 0 {

@@ -8,5 +8,5 @@ import (
 )
 
 type RateLimiter interface{
-	RateLimit(ctx context.Context,Clientid string, requestTime time.Time)(model.RateLimitingResponse)
+	RateLimit(ctx context.Context,Clientid string, requestTime time.Time)(model.RateLimitingResponse,error)
 }

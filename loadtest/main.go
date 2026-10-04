@@ -7,6 +7,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -20,25 +21,24 @@ const (
 	url = "http://localhost:8080/rate-limit"
 )
 
-
-func percentile(latency []time.Duration,p float64)time.Duration{
-	if len(latency)==0{
+func percentile(latency []time.Duration, p float64) time.Duration {
+	if len(latency) == 0 {
 		return 0
 	}
-	
-	sorted := make([]time.Duration,len(latency))
-	copy(sorted,latency)
 
-	sort.Slice(sorted,func(i, j int) bool {
-		return sorted[i]<sorted[j]
+	sorted := make([]time.Duration, len(latency))
+	copy(sorted, latency)
+
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i] < sorted[j]
 	})
-	index := int(math.Ceil((p/100) * float64(len(sorted))))-1
+	index := int(math.Ceil((p/100)*float64(len(sorted)))) - 1
 
-	if index < 0{
-		index=0
+	if index < 0 {
+		index = 0
 	}
-	if index >= len(sorted){
-		index=len(sorted)-1
+	if index >= len(sorted) {
+		index = len(sorted) - 1
 	}
 
 	return sorted[index]
@@ -48,11 +48,13 @@ func main() {
 
 	var allowed atomic.Int64
 	var rejected atomic.Int64
-	TotalRequest := flag.Int("requests",1000,"Total Requests")
-	Concurrency := flag.Int("concurrency",100,"concurrent workers")
+	var errors atomic.Int64
+
+	TotalRequest := flag.Int("requests", 1000, "Total Requests")
+	Concurrency := flag.Int("concurrency", 100, "concurrent workers")
 	flag.Parse()
 
-	if *TotalRequest <= 0{
+	if *TotalRequest <= 0 {
 		log.Fatal("total request must be greater than 0")
 	}
 
@@ -62,12 +64,12 @@ func main() {
 	totalRequest := *TotalRequest
 	concurrency := *Concurrency
 
-	latencies := make([]time.Duration,totalRequest)
+	latencies := make([]time.Duration, totalRequest)
 
 	start := time.Now()
 
 	jobs := make(chan int)
-	
+
 	var wg sync.WaitGroup
 
 	for i := 0; i < concurrency; i++ {
@@ -88,6 +90,7 @@ func main() {
 					strings.NewReader(`{"clientID":"client123"}`),
 				)
 				if err != nil {
+					errors.Add(1)
 					continue
 				}
 				req.Header.Set("Content-Type", "application/json")
@@ -96,6 +99,13 @@ func main() {
 				latencies[requestId] = time.Since(requestStart)
 
 				if err != nil {
+					errors.Add(1)
+					continue
+				}
+				if (resp.StatusCode < 200 || resp.StatusCode >= 300) &&
+					resp.StatusCode != http.StatusTooManyRequests {
+					resp.Body.Close()
+					errors.Add(1)
 					continue
 				}
 				var result model.RateLimitingResponse
@@ -104,12 +114,13 @@ func main() {
 				resp.Body.Close()
 
 				if err != nil {
+					errors.Add(1)
 					continue
 				}
 
 				if result.Allowed {
 					allowed.Add(1)
-				}else {
+				} else {
 					rejected.Add(1)
 				}
 			}
@@ -123,24 +134,28 @@ func main() {
 	close(jobs)
 
 	wg.Wait()
+	accounted := allowed.Load() + rejected.Load() + errors.Load()
+	accountingOk := accounted == int64(totalRequest)
 
 	var totalLatency time.Duration
 	duration := time.Since(start)
-	for _,latency := range latencies {
+	for _, latency := range latencies {
 		totalLatency += latency
 	}
 
-	avgLatency := totalLatency/time.Duration(totalRequest)
-	p50 := percentile(latencies,50)
-	p95 := percentile(latencies,95)
-	p99 := percentile(latencies,99)
-	
+	avgLatency := totalLatency / time.Duration(totalRequest)
+	p50 := percentile(latencies, 50)
+	p95 := percentile(latencies, 95)
+	p99 := percentile(latencies, 99)
+
 	fmt.Println()
 	fmt.Println("========== FluxGate Load Test ==========")
 	fmt.Println("Total Requests:", totalRequest)
 	fmt.Println("Concurrency:", concurrency)
 	fmt.Println("Allowed:", allowed.Load())
 	fmt.Println("Rejected:", rejected.Load())
+	fmt.Println("Errors:", errors.Load())
+	fmt.Println("Accounted:", accounted)
 	fmt.Println("Total Duration:", duration)
 
 	fmt.Printf("Requests/sec: %.2f\n",
@@ -153,4 +168,10 @@ func main() {
 	fmt.Println("p50:", p50)
 	fmt.Println("p95:", p95)
 	fmt.Println("p99:", p99)
+	if accountingOk{
+		fmt.Println("\nAccounting Pass")
+	}else{
+		fmt.Println("\nAccounting failed")
+		os.Exit(1)
+	}
 }
