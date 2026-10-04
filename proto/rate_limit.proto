@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package ratelimit.v1;
+
+option go_package = "github.com/StardustEnigma/FluxGate/gen/ratelimit/v1;ratelimitv1";
+
+service RateLimitService {
+  rpc CheckRateLimit(CheckRateLimitRequest)
+      returns (CheckRateLimitResponse);
+}
+
+message CheckRateLimitRequest {
+  string client_id = 1;
+}
+
+message CheckRateLimitResponse {
+  bool allowed = 1;
+  string retry_after = 2;
+}
