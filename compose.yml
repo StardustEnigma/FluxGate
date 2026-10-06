@@ -1,0 +1,41 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: fluxgate-redis
+    restart: unless-stopped
+    networks:
+      - fluxgate-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  fluxgate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: fluxgate:local
+    container_name: fluxgate-app
+    environment:
+      REDIS_ADDR: redis:6379
+    command:
+      - --algorithm
+      - token-bucket
+      - --capacity
+      - "10"
+      - --refill-rate
+      - "2"
+    ports:
+      - "8080:8080"
+      - "9090:9090"
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - fluxgate-network
+
+networks:
+  fluxgate-network:
+    driver: bridge

@@ -1,0 +1,10 @@
+.git
+.github
+.vscode
+.idea
+.env
+.env.*
+*.log
+coverage/
+dist/
+bin/

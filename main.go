@@ -71,21 +71,33 @@ func main() {
 
 	default:
 		log.Fatalf("unknown algorithm : %s (use token-bucket or sliding-window)", *algorithm)
-
 	}
+
 	appMetrics := metrics.NewMetrics()
 	limiter = service.NewInstrumentedLimiter(limiter, appMetrics)
+
+	// Fix #5 – pass appMetrics into the handler so it can record full HTTP time
 	restHandler := &handler.RateLimiterHandler{
 		RateLimiter: limiter,
+		Metrics:     appMetrics,
 	}
-	router := chi.NewRouter()
 
+	router := chi.NewRouter()
 	router.Post("/rate-limit", restHandler.RateLimit)
 
+	// Fix #4 – add HTTP server timeouts.
+	// Without these, slow or stalled clients hold goroutines open indefinitely,
+	// exhausting the scheduler's thread pool and inflating latency for healthy
+	// requests running concurrently.
 	httpServer := &http.Server{
-		Addr:    ":8080",
-		Handler: router,
+		Addr:              ":8080",
+		Handler:           router,
+		ReadHeaderTimeout: 5 * time.Second,  // guards against slow-header attacks
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       120 * time.Second, // keep-alive connection lifetime
 	}
+
 	grpcListner, err := net.Listen("tcp", ":9090")
 	if err != nil {
 		log.Fatalf("failed to listen for gRPC: %v", err)
@@ -97,12 +109,13 @@ func main() {
 			RateLimiter: limiter,
 		},
 	)
-	
+
 	metricsHandler := promhttp.HandlerFor(
 		appMetrics.Resgistry,
 		promhttp.HandlerOpts{},
 	)
 	router.Handle("/metrics", metricsHandler)
+
 	go func() {
 		log.Println("REST server listening on port :8080")
 		if err := httpServer.ListenAndServe(); err != nil &&

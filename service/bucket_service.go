@@ -33,6 +33,9 @@ func (r *TokenBucketLimiter) RateLimit(ctx context.Context, Clientid string, req
 			fmt.Errorf("token bucket capacity must be at least 1")
 	}
 	key := "rate-limit:bucket:" + Clientid
+
+	start := time.Now()
+
 	result, err := r.store.Eval(
 		ctx,
 		tokenBucketScript,
@@ -41,6 +44,9 @@ func (r *TokenBucketLimiter) RateLimit(ctx context.Context, Clientid string, req
 		r.policy.RefillRate,
 		requestTime.UnixNano(),
 	)
+
+	redisLatency.Record(time.Since(start))
+
 	if err != nil {
 		return model.RateLimitingResponse{},
 			fmt.Errorf("execute token bucket script: %w", err)
@@ -75,5 +81,5 @@ func (r *TokenBucketLimiter) RateLimit(ctx context.Context, Clientid string, req
 		response.RetryAfter = duration.String()
 	}
 
-	return response,nil
+	return response, nil
 }
