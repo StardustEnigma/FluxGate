@@ -60,10 +60,10 @@ type BenchmarkConfig struct {
 	Requests    int    `json:"requests"`
 	Concurrency int    `json:"concurrency"`
 
-	Capacity   float64 `json:"capacity,omitempty"`
-	RefillRate float64 `json:"refill_rate,omitempty"`
-	Limit      int     `json:"limit,omitempty"`
-	Window     string  `json:"window,omitempty"`
+	Capacity   *float64 `json:"capacity,omitempty"`
+	RefillRate *float64 `json:"refill_rate,omitempty"`
+	Limit      *int     `json:"limit,omitempty"`
+	Window     *string  `json:"window,omitempty"`
 }
 
 type BenchmarkMetrics struct {
@@ -290,6 +290,26 @@ func main() {
 
 	throughput := float64(totalRequest) / duration.Seconds()
 
+	benchmarkConfig := BenchmarkConfig{
+		TargetURL:   *targetURL,
+		Requests:    totalRequest,
+		Concurrency: concurrency,
+	}
+
+	switch *algorithm {
+	case "token-bucket":
+		benchmarkConfig.Capacity = capacity
+		benchmarkConfig.RefillRate = refillRate
+
+	case "sliding-window":
+		windowValue := window.String()
+		benchmarkConfig.Limit = limit
+		benchmarkConfig.Window = &windowValue
+
+	default:
+		log.Fatalf("unknown algorithm: %s", *algorithm)
+	}
+
 	result := BenchmarkResult{
 		Metadata: BenchmarkMetadata{
 			Algorithm: *algorithm,
@@ -297,16 +317,7 @@ func main() {
 			Timestamp: *timestamp,
 		},
 
-		Benchmark: BenchmarkConfig{
-			TargetURL:   *targetURL,
-			Requests:    totalRequest,
-			Concurrency: concurrency,
-
-			Capacity:   *capacity,
-			RefillRate: *refillRate,
-			Limit:      *limit,
-			Window:     window.String(),
-		},
+		Benchmark: benchmarkConfig,
 
 		Results: BenchmarkMetrics{
 			Allowed:       allowedCount,

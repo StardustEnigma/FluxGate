@@ -1,0 +1,27 @@
+{
+ "metadata": {
+  "algorithm": "sliding-window",
+  "commit": "e2447beeba53a39c8bb55ab3da25f80fa4caccd1",
+  "timestamp": "2026-10-08T18-04-03Z"
+ },
+ "benchmark": {
+  "target_url": "http://localhost:8080/rate-limit",
+  "requests": 50000,
+  "concurrency": 200,
+  "limit": 10,
+  "window": "1m0s"
+ },
+ "results": {
+  "allowed": 10000,
+  "rejected": 40000,
+  "errors": 0,
+  "duration": "2.071108429s",
+  "throughput_rps": 24141.662164999085,
+  "latency": {
+   "average": "7.96994ms",
+   "p50": "6.788503ms",
+   "p95": "10.946061ms",
+   "p99": "17.354331ms"
+  }
+ }
+}

@@ -1,0 +1,27 @@
+{
+ "metadata": {
+  "algorithm": "token-bucket",
+  "commit": "e2447beeba53a39c8bb55ab3da25f80fa4caccd1",
+  "timestamp": "2026-10-08T18-03-26Z"
+ },
+ "benchmark": {
+  "target_url": "http://localhost:8080/rate-limit",
+  "requests": 50000,
+  "concurrency": 200,
+  "capacity": 10,
+  "refill_rate": 2
+ },
+ "results": {
+  "allowed": 13200,
+  "rejected": 36800,
+  "errors": 0,
+  "duration": "2.327505237s",
+  "throughput_rps": 21482.228785206382,
+  "latency": {
+   "average": "8.893728ms",
+   "p50": "7.196994ms",
+   "p95": "12.10302ms",
+   "p99": "17.571568ms"
+  }
+ }
+}

@@ -124,18 +124,29 @@ echo "[5/5] Running benchmark..."
 
 RESULT_FILE="$RESULT_DIR/benchmark-${TIMESTAMP}.json"
 
-go run ./loadtest \
-    --url "http://localhost:${PORT}/rate-limit" \
-    --requests "$REQUESTS" \
-    --concurrency "$CONCURRENCY" \
-    --algorithm "$ALGORITHM" \
-    --capacity "$CAPACITY" \
-    --refill-rate "$REFILL_RATE" \
-    --limit "$LIMIT" \
-    --window "$WINDOW" \
-    --commit "$COMMIT" \
-    --timestamp "$TIMESTAMP" \
-    --json > "$RESULT_FILE"
+LOADTEST_ARGS=(
+    --url "http://localhost:${PORT}/rate-limit"
+    --requests "$REQUESTS"
+    --concurrency "$CONCURRENCY"
+    --algorithm "$ALGORITHM"
+    --commit "$COMMIT"
+    --timestamp "$TIMESTAMP"
+    --json
+)
+
+if [[ "$ALGORITHM" == "token-bucket" ]]; then
+    LOADTEST_ARGS+=(
+        --capacity "$CAPACITY"
+        --refill-rate "$REFILL_RATE"
+    )
+else
+    LOADTEST_ARGS+=(
+        --limit "$LIMIT"
+        --window "$WINDOW"
+    )
+fi
+
+go run ./loadtest "${LOADTEST_ARGS[@]}" > "$RESULT_FILE"
 # --------------------------------------------------
 # Results
 # --------------------------------------------------
