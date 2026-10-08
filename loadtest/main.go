@@ -17,7 +17,6 @@ import (
 
 	"github.com/StardustEnigma/FluxGate/model"
 )
-
 func percentile(latency []time.Duration, p float64) time.Duration {
 	if len(latency) == 0 {
 		return 0
@@ -42,11 +41,33 @@ func percentile(latency []time.Duration, p float64) time.Duration {
 	return sorted[index]
 }
 
+type BenchMarkResult struct{
+	TargetURL     string  `json:"target_url"`
+    Requests      int     `json:"requests"`
+    Concurrency   int     `json:"concurrency"`
+    Allowed       int64   `json:"allowed"`
+    Rejected      int64   `json:"rejected"`
+    Errors        int64   `json:"errors"`
+    Duration      string  `json:"duration"`
+    ThroughputRPS float64 `json:"throughput_rps"`
+
+    Latency LatencyResult `json:"latency"`
+}
+type LatencyResult struct{
+	Average string `json:"average"`
+    P50     string `json:"p50"`
+    P95     string `json:"p95"`
+    P99     string `json:"p99"`
+}
 func main() {
+	jsonoutputflag := flag.Bool(
+		"json",
+		false,
+		"Output benchmark result as json",
+)
 	var allowed atomic.Int64
 	var rejected atomic.Int64
 	var errors atomic.Int64
-
 	totalRequestFlag := flag.Int(
 		"requests",
 		1000,
@@ -194,11 +215,33 @@ func main() {
 	for _, latency := range latencies {
 		totalLatency += latency
 	}
-
 	avgLatency := totalLatency / time.Duration(totalRequest)
 	p50 := percentile(latencies, 50)
 	p95 := percentile(latencies, 95)
 	p99 := percentile(latencies, 99)
+	result := BenchMarkResult{
+	TargetURL:     *targetURL,
+    Requests:      totalRequest,
+    Concurrency:   concurrency,
+    Allowed:       allowed.Load(),
+    Rejected:      rejected.Load(),
+    Errors:        errors.Load(),
+    Duration:      duration.String(),
+    ThroughputRPS: float64(totalRequest) / duration.Seconds(),
+    Latency: LatencyResult{
+        Average: avgLatency.String(),
+        P50:     p50.String(),
+        P95:     p95.String(),
+        P99:     p99.String(),
+	},
+}
+	if *jsonoutputflag{
+	encoder := json.NewEncoder(os.Stdout)
+	encoder.SetIndent(""," ")
+	_=encoder.Encode(result)
+	return 
+}
+	
 
 	fmt.Println()
 	fmt.Println("========== FluxGate Load Test ==========")
@@ -229,4 +272,6 @@ func main() {
 		fmt.Println("\nAccounting failed")
 		os.Exit(1)
 	}
+	
+
 }
