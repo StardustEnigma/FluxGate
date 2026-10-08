@@ -1,6 +1,6 @@
 package service
 
-const tokenBucketScript=`
+const tokenBucketScript = `
 local key=KEYS[1]
 
 local capacity=tonumber(ARGV[1])

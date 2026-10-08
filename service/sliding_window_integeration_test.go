@@ -105,26 +105,26 @@ func TestSlidingWindow_AllowsAfterWindowExpiration(t *testing.T) {
 			t.Fatalf("request %d should have been allowed", i+1)
 		}
 	}
-	
+
 	response := callSlidingWindow(
-			t,
-			limiter,
-			ctx,
-			clientId,
-			requestTime.Add(5*time.Second),
-		)
+		t,
+		limiter,
+		ctx,
+		clientId,
+		requestTime.Add(5*time.Second),
+	)
 
 	if response.Allowed {
 		t.Fatalf("request should have been rejected")
 	}
 
 	response = callSlidingWindow(
-			t,
-			limiter,
-			ctx,
-			clientId,
-			requestTime.Add(10*time.Second),
-		)
+		t,
+		limiter,
+		ctx,
+		clientId,
+		requestTime.Add(10*time.Second),
+	)
 
 	if !response.Allowed {
 		t.Fatalf("request should have been allowed")
@@ -151,24 +151,24 @@ func TestSlidingWindow_ReturnsRetryAfter(t *testing.T) {
 	requestTime := time.Now()
 
 	response := callSlidingWindow(
-			t,
-			limiter,
-			ctx,
-			clientId,
-			requestTime,
-		)
+		t,
+		limiter,
+		ctx,
+		clientId,
+		requestTime,
+	)
 
 	if !response.Allowed {
 		t.Fatal("first request should have been allowed")
 	}
 
 	response = callSlidingWindow(
-			t,
-			limiter,
-			ctx,
-			clientId,
-			requestTime,
-		)
+		t,
+		limiter,
+		ctx,
+		clientId,
+		requestTime,
+	)
 
 	if response.Allowed {
 		t.Fatal("second request should have been rejected")

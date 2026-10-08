@@ -7,6 +7,6 @@ import (
 	"github.com/StardustEnigma/FluxGate/model"
 )
 
-type RateLimiter interface{
-	RateLimit(ctx context.Context,Clientid string, requestTime time.Time)(model.RateLimitingResponse,error)
+type RateLimiter interface {
+	RateLimit(ctx context.Context, Clientid string, requestTime time.Time) (model.RateLimitingResponse, error)
 }

@@ -45,24 +45,24 @@ func (r *SlidingWindowLimiter) RateLimit(
 	)
 	if err != nil {
 		return model.RateLimitingResponse{},
-        fmt.Errorf("execute sliding window script: %w", err)
+			fmt.Errorf("execute sliding window script: %w", err)
 	}
-	values,ok := result.([]interface{})
-    if !ok || len(values) != 2 {
-		return model.RateLimitingResponse{}, 
-        fmt.Errorf("unexpected sliding window script result: %T", result)
+	values, ok := result.([]interface{})
+	if !ok || len(values) != 2 {
+		return model.RateLimitingResponse{},
+			fmt.Errorf("unexpected sliding window script result: %T", result)
 	}
 
 	allowedValue, ok := values[0].(int64)
-    if !ok {
+	if !ok {
 		return model.RateLimitingResponse{}, fmt.Errorf("unexpected allowed value type: %T", values[0])
 	}
 
-	retryAfter,ok := values[1].(int64)
-    if !ok {
+	retryAfter, ok := values[1].(int64)
+	if !ok {
 		return model.RateLimitingResponse{}, fmt.Errorf("unexpected retry-after value type: %T", values[1])
 	}
-    if allowedValue == 1 {
+	if allowedValue == 1 {
 		return model.RateLimitingResponse{
 			Allowed: true,
 		}, nil
@@ -71,5 +71,5 @@ func (r *SlidingWindowLimiter) RateLimit(
 	return model.RateLimitingResponse{
 		Allowed:    false,
 		RetryAfter: time.Duration(retryAfter).String(),
-	},nil
+	}, nil
 }

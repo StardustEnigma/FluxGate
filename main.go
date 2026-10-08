@@ -92,7 +92,7 @@ func main() {
 	httpServer := &http.Server{
 		Addr:              ":8080",
 		Handler:           router,
-		ReadHeaderTimeout: 5 * time.Second,  // guards against slow-header attacks
+		ReadHeaderTimeout: 5 * time.Second, // guards against slow-header attacks
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      10 * time.Second,
 		IdleTimeout:       120 * time.Second, // keep-alive connection lifetime
