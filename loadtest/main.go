@@ -35,6 +35,7 @@ func percentile(latency []time.Duration, p float64) time.Duration {
 	if index < 0 {
 		index = 0
 	}
+
 	if index >= len(sorted) {
 		index = len(sorted) - 1
 	}
@@ -42,18 +43,38 @@ func percentile(latency []time.Duration, p float64) time.Duration {
 	return sorted[index]
 }
 
-type BenchMarkResult struct {
-	TargetURL     string  `json:"target_url"`
-	Requests      int     `json:"requests"`
-	Concurrency   int     `json:"concurrency"`
-	Allowed       int64   `json:"allowed"`
-	Rejected      int64   `json:"rejected"`
-	Errors        int64   `json:"errors"`
-	Duration      string  `json:"duration"`
-	ThroughputRPS float64 `json:"throughput_rps"`
-
-	Latency LatencyResult `json:"latency"`
+type BenchmarkResult struct {
+	Metadata  BenchmarkMetadata `json:"metadata"`
+	Benchmark BenchmarkConfig   `json:"benchmark"`
+	Results   BenchmarkMetrics  `json:"results"`
 }
+
+type BenchmarkMetadata struct {
+	Algorithm string `json:"algorithm"`
+	Commit    string `json:"commit,omitempty"`
+	Timestamp string `json:"timestamp,omitempty"`
+}
+
+type BenchmarkConfig struct {
+	TargetURL   string `json:"target_url"`
+	Requests    int    `json:"requests"`
+	Concurrency int    `json:"concurrency"`
+
+	Capacity   float64 `json:"capacity,omitempty"`
+	RefillRate float64 `json:"refill_rate,omitempty"`
+	Limit      int     `json:"limit,omitempty"`
+	Window     string  `json:"window,omitempty"`
+}
+
+type BenchmarkMetrics struct {
+	Allowed       int64         `json:"allowed"`
+	Rejected      int64         `json:"rejected"`
+	Errors        int64         `json:"errors"`
+	Duration      string        `json:"duration"`
+	ThroughputRPS float64       `json:"throughput_rps"`
+	Latency       LatencyResult `json:"latency"`
+}
+
 type LatencyResult struct {
 	Average string `json:"average"`
 	P50     string `json:"p50"`
@@ -62,14 +83,16 @@ type LatencyResult struct {
 }
 
 func main() {
-	jsonoutputflag := flag.Bool(
+	jsonOutputFlag := flag.Bool(
 		"json",
 		false,
 		"Output benchmark result as json",
 	)
+
 	var allowed atomic.Int64
 	var rejected atomic.Int64
 	var errors atomic.Int64
+
 	totalRequestFlag := flag.Int(
 		"requests",
 		1000,
@@ -88,6 +111,48 @@ func main() {
 		"Target rate-limiting endpoint URL",
 	)
 
+	algorithm := flag.String(
+		"algorithm",
+		"",
+		"Rate limiting algorithm",
+	)
+
+	capacity := flag.Float64(
+		"capacity",
+		0,
+		"Token Bucket capacity",
+	)
+
+	refillRate := flag.Float64(
+		"refill-rate",
+		0,
+		"Token Bucket refill rate",
+	)
+
+	limit := flag.Int(
+		"limit",
+		0,
+		"Sliding Window request limit",
+	)
+
+	window := flag.Duration(
+		"window",
+		0,
+		"Sliding Window duration",
+	)
+
+	commit := flag.String(
+		"commit",
+		"",
+		"Git commit SHA",
+	)
+
+	timestamp := flag.String(
+		"timestamp",
+		"",
+		"Benchmark timestamp",
+	)
+
 	flag.Parse()
 
 	if *totalRequestFlag <= 0 {
@@ -102,20 +167,16 @@ func main() {
 		log.Fatal("target URL must not be empty")
 	}
 
+	if strings.TrimSpace(*algorithm) == "" {
+		log.Fatal("algorithm must not be empty")
+	}
+
 	totalRequest := *totalRequestFlag
 	concurrency := *concurrencyFlag
 
-	// Fix #2 – tune the HTTP transport to match the benchmark's concurrency level.
-	//
-	// Go's http.DefaultTransport sets MaxIdleConnsPerHost = 2, which means that
-	// after each burst of 200 concurrent requests the transport tears down 198
-	// keep-alive connections. The next burst must re-dial fresh TCP connections,
-	// paying a kernel SYN/SYN-ACK round-trip each time. Inside Docker bridge
-	// networking this alone can add 1-5 ms per connection and, because all 200
-	// goroutines re-dial simultaneously, causes a thundering-herd that manifests
-	// as p95/p99 spikes.
+	// Tune the HTTP transport to match the benchmark's concurrency level.
 	transport := &http.Transport{
-		MaxIdleConnsPerHost: concurrency + 50, // retain enough idle conns for the whole worker pool
+		MaxIdleConnsPerHost: concurrency + 50,
 		MaxConnsPerHost:     concurrency + 50,
 		DisableKeepAlives:   false,
 		IdleConnTimeout:     90 * time.Second,
@@ -127,7 +188,6 @@ func main() {
 	}
 
 	// One shared HTTP client for all workers.
-	// Its underlying transport reuses connections across workers.
 	client := &http.Client{
 		Timeout:   5 * time.Second,
 		Transport: transport,
@@ -209,7 +269,11 @@ func main() {
 
 	duration := time.Since(start)
 
-	accounted := allowed.Load() + rejected.Load() + errors.Load()
+	allowedCount := allowed.Load()
+	rejectedCount := rejected.Load()
+	errorCount := errors.Load()
+
+	accounted := allowedCount + rejectedCount + errorCount
 	accountingOK := accounted == int64(totalRequest)
 
 	var totalLatency time.Duration
@@ -217,27 +281,50 @@ func main() {
 	for _, latency := range latencies {
 		totalLatency += latency
 	}
+
 	avgLatency := totalLatency / time.Duration(totalRequest)
+
 	p50 := percentile(latencies, 50)
 	p95 := percentile(latencies, 95)
 	p99 := percentile(latencies, 99)
-	result := BenchMarkResult{
-		TargetURL:     *targetURL,
-		Requests:      totalRequest,
-		Concurrency:   concurrency,
-		Allowed:       allowed.Load(),
-		Rejected:      rejected.Load(),
-		Errors:        errors.Load(),
-		Duration:      duration.String(),
-		ThroughputRPS: float64(totalRequest) / duration.Seconds(),
-		Latency: LatencyResult{
-			Average: avgLatency.String(),
-			P50:     p50.String(),
-			P95:     p95.String(),
-			P99:     p99.String(),
+
+	throughput := float64(totalRequest) / duration.Seconds()
+
+	result := BenchmarkResult{
+		Metadata: BenchmarkMetadata{
+			Algorithm: *algorithm,
+			Commit:    *commit,
+			Timestamp: *timestamp,
+		},
+
+		Benchmark: BenchmarkConfig{
+			TargetURL:   *targetURL,
+			Requests:    totalRequest,
+			Concurrency: concurrency,
+
+			Capacity:   *capacity,
+			RefillRate: *refillRate,
+			Limit:      *limit,
+			Window:     window.String(),
+		},
+
+		Results: BenchmarkMetrics{
+			Allowed:       allowedCount,
+			Rejected:      rejectedCount,
+			Errors:        errorCount,
+			Duration:      duration.String(),
+			ThroughputRPS: throughput,
+
+			Latency: LatencyResult{
+				Average: avgLatency.String(),
+				P50:     p50.String(),
+				P95:     p95.String(),
+				P99:     p99.String(),
+			},
 		},
 	}
-	if *jsonoutputflag {
+
+	if *jsonOutputFlag {
 		encoder := json.NewEncoder(os.Stdout)
 		encoder.SetIndent("", " ")
 		_ = encoder.Encode(result)
@@ -246,18 +333,19 @@ func main() {
 
 	fmt.Println()
 	fmt.Println("========== FluxGate Load Test ==========")
+	fmt.Println("Algorithm:", *algorithm)
 	fmt.Println("Target URL:", *targetURL)
 	fmt.Println("Total Requests:", totalRequest)
 	fmt.Println("Concurrency:", concurrency)
-	fmt.Println("Allowed:", allowed.Load())
-	fmt.Println("Rejected:", rejected.Load())
-	fmt.Println("Errors:", errors.Load())
+	fmt.Println("Allowed:", allowedCount)
+	fmt.Println("Rejected:", rejectedCount)
+	fmt.Println("Errors:", errorCount)
 	fmt.Println("Accounted:", accounted)
 	fmt.Println("Total Duration:", duration)
 
 	fmt.Printf(
 		"Requests/sec: %.2f\n",
-		float64(totalRequest)/duration.Seconds(),
+		throughput,
 	)
 
 	fmt.Println()
@@ -273,5 +361,4 @@ func main() {
 		fmt.Println("\nAccounting failed")
 		os.Exit(1)
 	}
-
 }

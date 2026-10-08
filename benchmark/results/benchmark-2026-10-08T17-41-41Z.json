@@ -1,0 +1,16 @@
+{
+ "target_url": "http://localhost:8080/rate-limit",
+ "requests": 1000,
+ "concurrency": 50,
+ "allowed": 1000,
+ "rejected": 0,
+ "errors": 0,
+ "duration": "155.602548ms",
+ "throughput_rps": 6426.629980377956,
+ "latency": {
+  "average": "7.426223ms",
+  "p50": "1.881769ms",
+  "p95": "55.529126ms",
+  "p99": "61.839703ms"
+ }
+}

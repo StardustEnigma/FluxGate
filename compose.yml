@@ -20,12 +20,16 @@ services:
     environment:
       REDIS_ADDR: redis:6379
     command:
-      - --algorithm
-      - token-bucket
-      - --capacity
-      - "10"
-      - --refill-rate
-      - "2"
+      - "--algorithm"
+      - "${ALGORITHM:-token-bucket}"
+      - "--capacity"
+      - "${CAPACITY:-10}"
+      - "--refill-rate"
+      - "${REFILL_RATE:-2}"
+      - "--limit"
+      - "${LIMIT:-10}"
+      - "--window"
+      - "${WINDOW:-60s}"
     ports:
       - "8080:8080"
       - "9090:9090"
