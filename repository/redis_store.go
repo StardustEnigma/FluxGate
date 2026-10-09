@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"crypto/tls"
 	"os"
 	"time"
 
@@ -24,16 +25,23 @@ func NewRedisStore() *RedisStore {
 	// PoolTimeout (previously 4 s) — the dominant source of p99 tail latency.
 	// The Prometheus histogram never captured this wait because it starts only
 	// after a connection is already acquired inside Eval().
-	rdb := redis.NewClient(&redis.Options{
-		Addr:         redisAddr,
-		PoolSize:     250,                    // headroom above 200-worker benchmark
-		MinIdleConns: 20,                     // pre-warm to absorb the first burst
-		DialTimeout:  500 * time.Millisecond, // fail fast on network issues
-		ReadTimeout:  1 * time.Second,
-		WriteTimeout: 1 * time.Second,
-		PoolTimeout:  2 * time.Second, // surface pool exhaustion quickly, not after 4 s
-	})
 
+	opts := &redis.Options{
+		Addr:         redisAddr,
+		Password:     os.Getenv("REDIS_PASSWORD"),
+		PoolSize:     20,
+		MinIdleConns: 2,
+		DialTimeout:  2 * time.Second,
+		ReadTimeout:  2 * time.Second,
+		WriteTimeout: 2 * time.Second,
+		PoolTimeout:  2 * time.Second,
+	}
+	if os.Getenv("REDIS_TLS") == "true" {
+		opts.TLSConfig = &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		}
+	}
+	rdb := redis.NewClient(opts)
 	return &RedisStore{
 		client: rdb,
 	}
